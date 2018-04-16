@@ -8,10 +8,10 @@ pip install -r requirements.txt
 
 ## Run Python benchmarks
 ```
-py.test
+make pybench
 ```
 
 ## Run Go benchmarks
 ```
-go test -bench=. -run=^$
+make gobench
 ```
