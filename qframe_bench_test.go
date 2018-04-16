@@ -58,6 +58,37 @@ func BenchmarkQFrame_WriteJsonRecords(b *testing.B) {
 	}
 }
 
+func BenchmarkQFrame_Sort(b *testing.B) {
+	f, _ := qframeReadCsv()
+
+	benchmarks := []struct {
+		name   string
+		orders []qf.Order
+	}{
+		{"UserId - Int", []qf.Order{{Column: "UserId"}}},
+		{"Name -  string", []qf.Order{{Column: "Name"}}},
+		{"Multi column", []qf.Order{{Column: "Style"}, {Column: "Name"}, {Column: "BrewMethod"}}},
+	}
+
+	for _, bc := range benchmarks {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				newF := f.Sort(bc.orders...)
+				if newF.Err != nil {
+					b.Fatalf("Unexpected error: %s", newF.Err.Error())
+				}
+
+				if newF.Len() != f.Len() {
+					b.Fatalf("Unexpected frame length: %d", newF.Len())
+				}
+			}
+
+		})
+	}
+}
+
 func gotaReadCsv() (df.DataFrame, error) {
 	f, err := os.Open(dataFileName)
 	if err != nil {
@@ -105,9 +136,42 @@ func BenchmarkGota_WriteJsonRecords(b *testing.B) {
 	}
 }
 
+func BenchmarkGota_Sort(b *testing.B) {
+	f, _ := gotaReadCsv()
+
+	benchmarks := []struct {
+		name   string
+		orders []df.Order
+	}{
+		{"UserId - Int", []df.Order{{Colname: "UserId"}}},
+		{"Name -  string", []df.Order{{Colname: "Name"}}},
+		{"Multi column", []df.Order{{Colname: "Style"}, {Colname: "Name"}, {Colname: "BrewMethod"}}},
+	}
+
+	for _, bc := range benchmarks {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				newF := f.Arrange(bc.orders...)
+				if newF.Err != nil {
+					b.Fatalf("Unexpected error: %s", newF.Err.Error())
+				}
+			}
+		})
+	}
+}
+
 /*
 BenchmarkQFrame_ReadCsv-2            	       5	 202199966 ns/op	164318040 B/op	    1500 allocs/op
 BenchmarkQFrame_WriteJsonRecords-2   	       5	 224061889 ns/op	69792524 B/op	      74 allocs/op
 BenchmarkGota_ReadCSV-2              	       2	 771431210 ns/op	228591928 B/op	 3686954 allocs/op
 BenchmarkGota_WriteJsonRecords-2     	       1	2298617520 ns/op	482345720 B/op	 5827950 allocs/op
+
+BenchmarkQFrame_Sort/UserId_-_Int-2         	     100	  10522800 ns/op	  303152 B/op	       3 allocs/op
+BenchmarkQFrame_Sort/Name_-__string-2       	      20	  92802526 ns/op	  303184 B/op	       3 allocs/op
+BenchmarkQFrame_Sort/Multi_column-2         	      10	 174326684 ns/op	  303344 B/op	       5 allocs/op
+BenchmarkGota_Sort/UserId_-_Int-2           	      30	  54875433 ns/op	42841667 B/op	     131 allocs/op
+BenchmarkGota_Sort/Name_-__string-2         	      10	 159895352 ns/op	48951627 B/op	     113 allocs/op
+BenchmarkGota_Sort/Multi_column-2           	       5	 289134941 ns/op	78037472 B/op	     241 allocs/op
 */
