@@ -4,6 +4,7 @@ import (
 	"bytes"
 	df "github.com/kniren/gota/dataframe"
 	qf "github.com/tobgu/qframe"
+	"github.com/tobgu/qframe/aggregation"
 	"os"
 	"testing"
 )
@@ -173,6 +174,48 @@ func BenchmarkQFrame_Eval(b *testing.B) {
 	}
 }
 
+func Mean(column []float64) float64 {
+	sum := 0.0
+	for _, val := range column {
+		sum += val
+	}
+	return sum / float64(len(column))
+}
+
+func BenchmarkQFrame_Aggregate(b *testing.B) {
+	f, _ := qframeReadCsv()
+
+	benchmarks := []struct {
+		name          string
+		groupColumns  []string
+		aggregations  []aggregation.Aggregation
+		expectedCount int
+	}{
+		// Note that there is a difference of +1 rows here compared to the pandas benchmark. This is due to the fact that pandas does not
+		// group by N/A while qframe does (in this case it actually reads it as the string "N/A")
+		{"Single col single float mean", []string{"Style"}, []aggregation.Aggregation{aggregation.New(Mean, "OG")}, 176},
+		{"Double col single float mean", []string{"Style", "Color"}, []aggregation.Aggregation{aggregation.New(Mean, "OG")}, 39557},
+		{"Single col double float mean", []string{"Style"}, []aggregation.Aggregation{aggregation.New(Mean, "OG"), aggregation.New(Mean, "FG")}, 176},
+	}
+
+	for _, bc := range benchmarks {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				newF := f.GroupBy(qf.GroupBy(bc.groupColumns...)).Aggregate(bc.aggregations...)
+				if newF.Err != nil {
+					b.Fatalf("Unexpected error: %s", newF.Err.Error())
+				}
+
+				if newF.Len() != bc.expectedCount {
+					b.Fatalf("Unexpected frame length: %d", newF.Len())
+				}
+			}
+		})
+	}
+}
+
 func gotaReadCsv() (df.DataFrame, error) {
 	f, err := os.Open(dataFileName)
 	if err != nil {
@@ -323,6 +366,11 @@ BenchmarkQFrame_Filter/String_regex_case_insensitive-2      	      20	  88342431
 BenchmarkQFrame_Filter/Integer_in-2                         	     500	   3179964 ns/op	  304811 B/op	      10 allocs/op
 BenchmarkQFrame_Eval/Float_abs-2         	    2000	    637177 ns/op	  612885 B/op	      41 allocs/op
 BenchmarkQFrame_Eval/Add_columns-2       	    2000	    780004 ns/op	  612833 B/op	      40 allocs/op
+
+// These are currently ~35% slower than the Pandas equivalents
+BenchmarkQFrame_Aggregate/Single_col_single_float_mean-2         	     100	  13942035 ns/op	 2384528 B/op	    1564 allocs/op
+BenchmarkQFrame_Aggregate/Double_col_single_float_mean-2         	      30	  40096283 ns/op	18011546 B/op	   88005 allocs/op
+BenchmarkQFrame_Aggregate/Single_col_double_float_mean-2         	     100	  14368216 ns/op	 3010032 B/op	    1742 allocs/op
 
 BenchmarkGota_ReadCSV-2                                     	       2	 758721612 ns/op	228591928 B/op	 3686954 allocs/op
 BenchmarkGota_WriteJsonRecords-2                            	       1	2771840823 ns/op	482439320 B/op	 5828275 allocs/op
