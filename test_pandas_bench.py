@@ -1,7 +1,6 @@
 # - Group by aggregate
 # - Apply
 # - Filter with custom function
-
 import pandas as pd
 import pytest
 
@@ -57,6 +56,22 @@ def test_filter(benchmark, name, filter_fn, expected_count):
     new_df = benchmark(filter_fn, df)
     assert len(new_df) == expected_count
 
+
+def eval_fn(df, expr):
+    return df.eval(expr)
+
+
+@pytest.mark.parametrize("name, eval_expr", [
+    ("float abs", "destCol = abs(BoilSize)"),
+    ("float add", "destCol = OG + FG"),
+])
+def test_eval(benchmark, name, eval_expr):
+    df = read_csv()
+    new_df = benchmark(eval_fn, df, eval_expr)
+    assert len(new_df) == len(df)
+    assert len(list(df)) + 1 == len(list(new_df))
+
+
 # Name (time in ms)                                             Mean              Median            StdDev            Rounds
 # --------------------------------------------------------------------------------------------------------------------------
 # test_filter[combine and-<lambda>-7280]                      4.6996 (1.0)        4.5539 (1.0)      0.4474 (1.0)         192
@@ -73,4 +88,6 @@ def test_filter(benchmark, name, filter_fn, expected_count):
 # test_sort[columns1]                                       142.2413 (27.92)    143.0750 (28.92)    2.4375 (5.31)          8
 # test_sort[columns2]                                       184.1537 (36.15)    183.4041 (37.07)    5.8602 (12.77)         6
 # test_write_json_records                                   317.4334 (62.31)    318.0416 (64.28)    4.9470 (10.78)         5
+# test_eval[float abs-destCol = abs(BoilSize)]               14.4224 (1.0)       14.1708 (1.0)      2.0511 (1.45)         29
+# test_eval[float add-destCol = OG + FG]                     15.8143 (1.10)      15.8394 (1.12)     1.4177 (1.0)          41
 # --------------------------------------------------------------------------------------------------------------------------

@@ -139,6 +139,40 @@ func BenchmarkQFrame_Filter(b *testing.B) {
 	}
 }
 
+func BenchmarkQFrame_Eval(b *testing.B) {
+	f, _ := qframeReadCsv()
+
+	benchmarks := []struct {
+		name   string
+		expr   qf.Expression
+		dstCol string
+	}{
+		{"Float abs", qf.Expr1("abs", "BoilSize"), "dstCol"},
+		{"Add columns", qf.Expr2("+", "OG", "FG"), "dstCol"},
+	}
+
+	for _, bc := range benchmarks {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				newF := f.Eval(bc.dstCol, bc.expr, nil)
+				if newF.Err != nil {
+					b.Fatalf("Unexpected error: %s", newF.Err.Error())
+				}
+
+				if newF.Len() != f.Len() {
+					b.Fatalf("Unexpected frame length: %d", newF.Len())
+				}
+
+				if len(newF.ColumnNames()) != len(f.ColumnNames())+1 {
+					b.Fatalf("Unexpected column count: %d", len(newF.ColumnNames()))
+				}
+			}
+		})
+	}
+}
+
 func gotaReadCsv() (df.DataFrame, error) {
 	f, err := os.Open(dataFileName)
 	if err != nil {
@@ -287,6 +321,8 @@ BenchmarkQFrame_Filter/String_like_case_insensitive-2       	     100	  14342672
 BenchmarkQFrame_Filter/String_regex_case_sensitive-2        	      20	  67469026 ns/op	  164712 B/op	      58 allocs/op
 BenchmarkQFrame_Filter/String_regex_case_insensitive-2      	      20	  88342431 ns/op	  172972 B/op	      61 allocs/op
 BenchmarkQFrame_Filter/Integer_in-2                         	     500	   3179964 ns/op	  304811 B/op	      10 allocs/op
+BenchmarkQFrame_Eval/Float_abs-2         	    2000	    637177 ns/op	  612885 B/op	      41 allocs/op
+BenchmarkQFrame_Eval/Add_columns-2       	    2000	    780004 ns/op	  612833 B/op	      40 allocs/op
 
 BenchmarkGota_ReadCSV-2                                     	       2	 758721612 ns/op	228591928 B/op	 3686954 allocs/op
 BenchmarkGota_WriteJsonRecords-2                            	       1	2771840823 ns/op	482439320 B/op	 5828275 allocs/op
