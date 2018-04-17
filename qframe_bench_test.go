@@ -12,6 +12,14 @@ const rowCount = 73861
 const columnCount = 23
 const dataFileName = "recipeData-utf8.csv"
 
+func intRange(size int) []int {
+	result := make([]int, size)
+	for i := range result {
+		result[i] = i
+	}
+	return result
+}
+
 func qframeReadCsv() (qf.QFrame, error) {
 	f, err := os.Open(dataFileName)
 	if err != nil {
@@ -89,7 +97,7 @@ func BenchmarkQFrame_Sort(b *testing.B) {
 	}
 }
 
-func F(comparator, column string, arg interface{}) qf.Filter {
+func F(comparator interface{}, column string, arg interface{}) qf.Filter {
 	return qf.Filter{Comparator: comparator, Column: column, Arg: arg}
 }
 
@@ -102,6 +110,7 @@ func BenchmarkQFrame_Filter(b *testing.B) {
 		expectedCount int
 	}{
 		{"Float gt", F(">", "Size(L)", 21.0), 26823},
+		{"Float custom gt", F(func(f float64) bool { return f > 21.0 }, "Size(L)", nil), 26823},
 		{"Combine or", qf.Or(F(">", "Size(L)", 21.0), F(">", "StyleID", 100)), 39818},
 		{"Combine and", qf.And(F(">", "Size(L)", 21.0), F(">", "StyleID", 100)), 7280},
 		{"String eq", F("=", "Style", "Cream Ale"), 830},
@@ -109,6 +118,7 @@ func BenchmarkQFrame_Filter(b *testing.B) {
 		{"String like case insensitive", F("ilike", "Name", "%ale%"), 11912},
 		{"String regex case sensitive", F("like", "Name", ".*Ale.*"), 9118},
 		{"String regex case insensitive", F("ilike", "Name", ".*ale.*"), 11912},
+		{"Integer in", F("in", "StyleID", intRange(100)), 53514},
 	}
 
 	for _, bc := range benchmarks {
@@ -234,6 +244,12 @@ func BenchmarkGota_Filter(b *testing.B) {
 				return f.Filter(df.F{Colname: "Style", Comparator: "==", Comparando: "Cream Ale"})
 			},
 			expectedCount: 830},
+		{
+			name: "Integer in",
+			filter: func(f df.DataFrame) df.DataFrame {
+				return f.Filter(df.F{Colname: "StyleID", Comparator: "in", Comparando: intRange(100)})
+			},
+			expectedCount: 53514},
 	}
 
 	for _, bc := range benchmarks {
@@ -262,6 +278,7 @@ BenchmarkQFrame_Sort/UserId_-_Int-2  	     100	  10306055 ns/op	  303152 B/op	  
 BenchmarkQFrame_Sort/Name_-__string-2         	      20	  86066995 ns/op	  303184 B/op	       3 allocs/op
 BenchmarkQFrame_Sort/Multi_column-2           	      10	 156379617 ns/op	  303344 B/op	       5 allocs/op
 BenchmarkQFrame_Filter/Float_gt-2             	    2000	    925995 ns/op	  196608 B/op	       2 allocs/op
+BenchmarkQFrame_Filter/Float_custom_gt-2    	    2000	   1130335 ns/op	  196608 B/op	       2 allocs/op
 BenchmarkQFrame_Filter/Combine_or-2           	    1000	   1352508 ns/op	  245936 B/op	       4 allocs/op
 BenchmarkQFrame_Filter/Combine_and-2          	    1000	   1197479 ns/op	  256800 B/op	       6 allocs/op
 BenchmarkQFrame_Filter/String_eq-2            	    2000	   1076656 ns/op	   85376 B/op	       2 allocs/op
@@ -269,6 +286,7 @@ BenchmarkQFrame_Filter/String_like_case_sensitive-2         	     500	   3777651
 BenchmarkQFrame_Filter/String_like_case_insensitive-2       	     100	  14342672 ns/op	  131704 B/op	      16 allocs/op
 BenchmarkQFrame_Filter/String_regex_case_sensitive-2        	      20	  67469026 ns/op	  164712 B/op	      58 allocs/op
 BenchmarkQFrame_Filter/String_regex_case_insensitive-2      	      20	  88342431 ns/op	  172972 B/op	      61 allocs/op
+BenchmarkQFrame_Filter/Integer_in-2                         	     500	   3179964 ns/op	  304811 B/op	      10 allocs/op
 
 BenchmarkGota_ReadCSV-2                                     	       2	 758721612 ns/op	228591928 B/op	 3686954 allocs/op
 BenchmarkGota_WriteJsonRecords-2                            	       1	2771840823 ns/op	482439320 B/op	 5828275 allocs/op
@@ -279,4 +297,5 @@ BenchmarkGota_Filter/Float_gt-2                             	      50	  32328655
 BenchmarkGota_Filter/Combine_or-2                           	      20	  51720372 ns/op	60522417 B/op	     663 allocs/op
 BenchmarkGota_Filter/Combine_and-2                          	      30	  42981669 ns/op	48312308 B/op	    1103 allocs/op
 BenchmarkGota_Filter/String_eq-2                            	     200	   9020487 ns/op	 1087112 B/op	     310 allocs/op
+BenchmarkGota_Filter/Integer_in-2                           	      10	 189430304 ns/op	77769508 B/op	     779 allocs/op
 */
