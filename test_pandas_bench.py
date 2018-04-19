@@ -70,9 +70,10 @@ def test_eval(benchmark, name, eval_expr):
 
 
 @pytest.mark.parametrize("name, aggregation_fn, expected_count", [
-    ("single col single float mean", lambda df: df.groupby(["Style"], as_index=False).agg({'OG': ['mean']}), 175),
-    ("double col single float mean", lambda df: df.groupby(["Style", "Color"], as_index=False).agg({'OG': ['mean']}), 39065),
-    ("single col double float mean", lambda df: df.groupby(["Style"], as_index=False).agg({'OG': ['mean'], 'FG': ['mean']}), 175),
+    ("single col string single float mean", lambda df: df.groupby(["Style"], as_index=False).agg({'OG': ['mean']}), 175),
+    ("single col int single float mean", lambda df: df.groupby(["StyleID"], as_index=False).agg({'OG': ['mean']}), 176),
+    ("double col string single float mean", lambda df: df.groupby(["Style", "Color"], as_index=False).agg({'OG': ['mean']}), 39065),
+    ("single col string double float mean", lambda df: df.groupby(["Style"], as_index=False).agg({'OG': ['mean'], 'FG': ['mean']}), 175),
 ])
 def test_aggregation(benchmark, name, aggregation_fn, expected_count):
     df = read_csv()
@@ -81,9 +82,10 @@ def test_aggregation(benchmark, name, aggregation_fn, expected_count):
 
 # Name (time in ms)                                             Mean              Median            StdDev            Rounds
 # --------------------------------------------------------------------------------------------------------------------------
-# test_aggregation[double col single float mean-<lambda>-39065]     28.7562 (2.77)     28.5712 (2.78)     1.1699 (1.78)         32
-# test_aggregation[single col double float mean-<lambda>-175]       10.8503 (1.05)     10.7352 (1.04)     0.6590 (1.0)          79
-# test_aggregation[single col single float mean-<lambda>-175]       10.3818 (1.0)      10.2818 (1.0)      0.7267 (1.10)         67
+# test_aggregation[double col string single float mean-<lambda>-39065]     30.4766 (5.90)     30.0730 (6.37)     1.6894 (1.62)         31
+# test_aggregation[single col int single float mean-<lambda>-176]           5.1619 (1.0)       4.7210 (1.0)      3.3494 (3.22)        129
+# test_aggregation[single col string double float mean-<lambda>-175]       11.0780 (2.15)     10.8296 (2.29)     1.0403 (1.0)          71
+# test_aggregation[single col string single float mean-<lambda>-175]       10.8325 (2.10)     10.5123 (2.23)     1.2459 (1.20)         73
 # test_filter[combine and-<lambda>-7280]                      4.6996 (1.0)        4.5539 (1.0)      0.4474 (1.0)         192
 # test_filter[combine or-<lambda>-39818]                     10.2313 (2.18)      10.0739 (2.21)     0.6902 (1.54)         89
 # test_filter[contains case insensitive-<lambda>-11912]     100.4382 (21.37)     99.3378 (21.81)    3.4898 (7.80)         11
