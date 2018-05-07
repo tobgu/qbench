@@ -350,6 +350,8 @@ func BenchmarkGota_Filter(b *testing.B) {
 }
 
 /*
+QFrame
+------
 BenchmarkQFrame_ReadCsv-2            	       5	 207966949 ns/op	164317979 B/op	    1501 allocs/op
 BenchmarkQFrame_WriteJsonRecords-2   	       5	 230018909 ns/op	69792521 B/op	      74 allocs/op
 BenchmarkQFrame_Sort/UserId_-_Int-2  	     100	  10306055 ns/op	  303152 B/op	       3 allocs/op
@@ -374,6 +376,8 @@ BenchmarkQFrame_Aggregate/Single_col_integer_single_float_mean-2        	     20
 BenchmarkQFrame_Aggregate/Double_col_string_single_float_mean-2         	      30	  34800359 ns/op	15473961 B/op	   48456 allocs/op
 BenchmarkQFrame_Aggregate/Single_col_string_double_float_mean-2         	     100	  12443931 ns/op	 2627584 B/op	    1405 allocs/op
 
+Gota
+----
 BenchmarkGota_ReadCSV-2                                     	       2	 758721612 ns/op	228591928 B/op	 3686954 allocs/op
 BenchmarkGota_WriteJsonRecords-2                            	       1	2771840823 ns/op	482439320 B/op	 5828275 allocs/op
 BenchmarkGota_Sort/UserId_-_Int-2                           	      30	  53656268 ns/op	42841668 B/op	     131 allocs/op
