@@ -2,9 +2,9 @@ package qframe_test
 
 import (
 	"bytes"
-	df "github.com/kniren/gota/dataframe"
 	qf "github.com/tobgu/qframe"
-	"github.com/tobgu/qframe/aggregation"
+	"github.com/tobgu/qframe/config/groupby"
+	"github.com/tobgu/qframe/types"
 	"os"
 	"testing"
 )
@@ -28,7 +28,7 @@ func qframeReadCsv() (qf.QFrame, error) {
 	}
 
 	defer f.Close()
-	frame := qf.ReadCsv(f)
+	frame := qf.ReadCSV(f)
 	return frame, frame.Err
 }
 
@@ -53,15 +53,17 @@ func BenchmarkQFrame_ReadCsv(b *testing.B) {
 func BenchmarkQFrame_WriteJsonRecords(b *testing.B) {
 	b.ReportAllocs()
 	f, _ := qframeReadCsv()
+	// fmt.Println(f.Slice(0,2))
+	// return
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		buf := new(bytes.Buffer)
-		f.ToJson(buf, "records")
-		if f.Err != nil {
+		err := f.ToJSON(buf)
+		if err != nil {
 			b.Fatalf("Unexpected JSON error: %s", f.Err)
 		}
-
-		if buf.Len() != 33363821 {
+	    // Previous length: 33363821, check diff
+		if buf.Len() != 33407314 {
 			b.Fatalf("Unexpected JSON length: %d", buf.Len())
 		}
 	}
@@ -148,8 +150,8 @@ func BenchmarkQFrame_Eval(b *testing.B) {
 		expr   qf.Expression
 		dstCol string
 	}{
-		{"Float abs", qf.Expr1("abs", "BoilSize"), "dstCol"},
-		{"Add columns", qf.Expr2("+", "OG", "FG"), "dstCol"},
+		{"Float abs", qf.Expr("abs", types.ColumnName("BoilSize")), "dstCol"},
+		{"Add columns", qf.Expr("+", types.ColumnName("OG"), types.ColumnName("FG")), "dstCol"},
 	}
 
 	for _, bc := range benchmarks {
@@ -157,7 +159,7 @@ func BenchmarkQFrame_Eval(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				newF := f.Eval(bc.dstCol, bc.expr, nil)
+				newF := f.Eval(bc.dstCol, bc.expr)
 				if newF.Err != nil {
 					b.Fatalf("Unexpected error: %s", newF.Err.Error())
 				}
@@ -188,15 +190,15 @@ func BenchmarkQFrame_Aggregate(b *testing.B) {
 	benchmarks := []struct {
 		name          string
 		groupColumns  []string
-		aggregations  []aggregation.Aggregation
+		aggregations  []qf.Aggregation
 		expectedCount int
 	}{
 		// Note that there is a difference of +1 rows here compared to the pandas benchmark. This is due to the fact that pandas does not
 		// group by N/A while qframe does (in this case it actually reads it as the string "N/A")
-		{"Single col string single float mean", []string{"Style"}, []aggregation.Aggregation{aggregation.New(Mean, "OG")}, 176},
-		{"Single col integer single float mean", []string{"StyleID"}, []aggregation.Aggregation{aggregation.New(Mean, "OG")}, 176},
-		{"Double col string single float mean", []string{"Style", "Color"}, []aggregation.Aggregation{aggregation.New(Mean, "OG")}, 39557},
-		{"Single col string double float mean", []string{"Style"}, []aggregation.Aggregation{aggregation.New(Mean, "OG"), aggregation.New(Mean, "FG")}, 176},
+		{"Single col string single float mean", []string{"Style"}, []qf.Aggregation{{Fn: Mean, Column: "OG"}}, 176},
+		{"Single col integer single float mean", []string{"StyleID"}, []qf.Aggregation{{Fn: Mean, Column: "OG"}}, 176},
+		{"Double col string single float mean", []string{"Style", "Color"}, []qf.Aggregation{{Fn: Mean, Column: "OG"}}, 39557},
+		{"Single col string double float mean", []string{"Style"}, []qf.Aggregation{{Fn: Mean, Column: "OG"}, {Fn: Mean, Column: "FG"}}, 176},
 	}
 
 	for _, bc := range benchmarks {
@@ -204,7 +206,7 @@ func BenchmarkQFrame_Aggregate(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				newF := f.GroupBy(qf.GroupBy(bc.groupColumns...)).Aggregate(bc.aggregations...)
+				newF := f.GroupBy(groupby.Columns(bc.groupColumns...)).Aggregate(bc.aggregations...)
 				if newF.Err != nil {
 					b.Fatalf("Unexpected error: %s", newF.Err.Error())
 				}
@@ -217,6 +219,7 @@ func BenchmarkQFrame_Aggregate(b *testing.B) {
 	}
 }
 
+/*
 func gotaReadCsv() (df.DataFrame, error) {
 	f, err := os.Open(dataFileName)
 	if err != nil {
@@ -348,6 +351,7 @@ func BenchmarkGota_Filter(b *testing.B) {
 		})
 	}
 }
+*/
 
 /*
 QFrame
