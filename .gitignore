@@ -4,3 +4,4 @@ __pycache__
 vendor/*
 pvenv
 .idea
+.cache/
