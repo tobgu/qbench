@@ -2,11 +2,16 @@ package qframe_test
 
 import (
 	"bytes"
-	qf "github.com/tobgu/qframe"
-	"github.com/tobgu/qframe/config/groupby"
-	"github.com/tobgu/qframe/types"
+	"database/sql"
 	"os"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
+
+	qf "github.com/tobgu/qframe"
+	"github.com/tobgu/qframe/config/groupby"
+	qsql "github.com/tobgu/qframe/config/sql"
+	"github.com/tobgu/qframe/types"
 )
 
 const rowCount = 73861
@@ -30,6 +35,125 @@ func qframeReadCsv() (qf.QFrame, error) {
 	defer f.Close()
 	frame := qf.ReadCSV(f)
 	return frame, frame.Err
+}
+
+// we don't want to commit a sqlite file
+// or benchmark this
+func newDb() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, err
+	}
+	_, err = db.Exec(`
+CREATE TABLE qbench (
+	'BeerID' INT,
+	'Name' TEXT,
+	'URL' TEXT,
+	'Style' TEXT,
+	'StyleID' TEXT,
+	'Size(L)' TEXT,
+	'OG' REAL,
+	'FG' REAL,
+	'ABV' REAL,
+	'IBU' REAL,
+	'Color' REAL,
+	'BoilSize' REAL,
+	'BoilTime' INT,
+	'BoilGravity' TEXT,
+	'Efficiency' REAL,
+	'MashThickness' TEXT,
+	'SugarScale' TEXT,
+	'BrewMethod' TEXT,
+	'PitchRate' TEXT,
+	'PrimaryTemp' TEXT,
+	'PrimingMethod' TEXT,
+	'PrimingAmount' TEXT,
+	'UserId' REAL);`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func populateDb(db *sql.DB) error {
+	qf, err := qframeReadCsv()
+	if err != nil {
+		return err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	err = qf.ToSQL(tx, qsql.Table("qbench"), qsql.SQLite())
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func BenchmarkQFrame_ReadSQLite(b *testing.B) {
+	b.ReportAllocs()
+	db, err := newDb()
+	if err != nil {
+		b.Fatalf("failed to create database: %s", err)
+	}
+	defer db.Close()
+	err = populateDb(db)
+	if err != nil {
+		b.Fatalf("failed to populate database: %s", err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		b.Fatalf("failed to start transaction")
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		f := qf.ReadSQL(
+			tx,
+			qsql.Query("SELECT * FROM qbench"),
+			qsql.SQLite(),
+		)
+		if f.Err != nil {
+			b.Fatalf("Error reading SQL: %s", f.Err)
+		}
+
+		if f.Len() != rowCount {
+			b.Fatalf("Unexpected row count: %d", f.Len())
+		}
+
+		if len(f.ColumnNames()) != columnCount {
+			b.Fatalf("Unexpected column count: %d", len(f.ColumnNames()))
+		}
+	}
+}
+
+func BenchmarkQFrame_WriteSQLite(b *testing.B) {
+	b.ReportAllocs()
+	db, err := newDb()
+	if err != nil {
+		b.Fatalf("failed to create database: %s", err)
+	}
+	defer db.Close()
+	tx, err := db.Begin()
+	if err != nil {
+		b.Fatalf("failed to start transaction")
+	}
+	f, err := qframeReadCsv()
+	if err != nil {
+		b.Fatalf("Unexpected CSV error: %s", err.Error())
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err = f.ToSQL(
+			tx,
+			qsql.Table("qbench"),
+			qsql.SQLite(),
+		)
+		if f.Err != nil {
+			b.Fatalf("Error writing SQL: %s", f.Err)
+		}
+	}
 }
 
 func BenchmarkQFrame_ReadCsv(b *testing.B) {
@@ -62,7 +186,7 @@ func BenchmarkQFrame_WriteJsonRecords(b *testing.B) {
 		if err != nil {
 			b.Fatalf("Unexpected JSON error: %s", f.Err)
 		}
-	    // Previous length: 33363821, check diff
+		// Previous length: 33363821, check diff
 		if buf.Len() != 33407314 {
 			b.Fatalf("Unexpected JSON length: %d", buf.Len())
 		}
