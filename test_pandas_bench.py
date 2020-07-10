@@ -1,14 +1,35 @@
 import pandas as pd
+import sqlite3
 import pytest
 
 
 def read_csv():
     return pd.read_csv('recipeData-utf8.csv')
 
+def _write_sql(df, db):
+    # NOTE: maybe not totally fair because
+    # pandas does not support transactions (or
+    # I do not know how to do them).
+    # Also this is the native sqlite driver
+    # rather than SQLAlchemy.
+    df.to_sql("qftest", db, if_exists="append")
+
+def _read_sql(db):
+    pd.read_sql("select * from qftest;", db)
+
+def test_write_sql(benchmark):
+    db = sqlite3.connect(":memory:")
+    df = pd.read_csv('recipeData-utf8.csv')
+    benchmark(_write_sql, df, db)
+
+def test_read_sql(benchmark):
+    db = sqlite3.connect(":memory:")
+    df = pd.read_csv('recipeData-utf8.csv')
+    df.to_sql("qftest", db)
+    benchmark(_read_sql, db)
 
 def write_json(df):
     return df.to_json(orient='records')
-
 
 def sort_df(df, columns):
     return df.sort_values(by=columns)
